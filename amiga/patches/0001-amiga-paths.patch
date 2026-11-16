@@ -1,0 +1,53 @@
+diff -ruN a/options.c b/options.c
+--- a/options.c
++++ b/options.c
+@@ -31,7 +31,15 @@
+     options->dir_opt = 0;
+     options->data_dir = 0;
+     options->user_dir = 0;
++#ifdef __amigaos__
++    /* the Amiga: the scores (.xorcurses) beside the program */
++#ifndef AMIGA_USER_DIR
++#define AMIGA_USER_DIR "PROGDIR:"
++#endif
++    char *tmp = AMIGA_USER_DIR;
++#else
+     char *tmp = getenv("HOME");
++#endif
+ 
+     if (tmp) {
+         if ((options->user_dir = malloc(strlen(tmp) + 1)))
+@@ -73,7 +81,14 @@
+     }
+     if (!(options->map_dir = options_file_path(map_dir, options->data_dir)))
+         return 0;
++#ifdef __amigaos__
++    /* AmigaDOS opens no drawer as a file: look for the first level in it */
++    char *first = options_file_path("01.xcm", options->map_dir);
++    FILE *fp = first ? fopen(first, "r") : 0;
++    free(first);
++#else
+     FILE *fp = fopen(options->map_dir, "r");
++#endif
+ 
+     if (!fp)
+         return 0;
+@@ -128,6 +143,18 @@
+         return 0;
+     char *fp = 0;
+ 
++#ifdef __amigaos__
++    /* a volume or assign (PROGDIR:) takes no '/' after its colon, and a
++       drawer's path ending in '/' no second one (AmigaDOS reads "//" as
++       the parent) */
++    if (path && *path && (path[strlen(path) - 1] == ':' || path[strlen(path) - 1] == '/')) {
++        if (!(fp = calloc(strlen(path) + strlen(fname) + 1, sizeof(char))))
++            return 0;
++        strcpy(fp, path);
++        strcat(fp, fname);
++        return fp;
++    }
++#endif
+     if (path) {
+         su_t n = strlen(path);
+ 

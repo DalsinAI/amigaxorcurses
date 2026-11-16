@@ -1,0 +1,72 @@
+# XorCurses for GFOS (AmigaOS 3.2 with GFOpenUp), 68040/68060: the maze
+# puzzle (after Astral Software's XOR) in its own 80 x 24 console window,
+# in colour, built soft float (the stove's fpuauto uses the FPU when the
+# Amiga has one). No SDL, no ACGame, no GFOpenGPU.
+#
+#   make -f amiga/Makefile.amigaos -j4 UP=/path/to/XorCurses [STOVE=...]
+#
+# UP is upstream at the commit package/xorcurses.lock names, with
+# amiga/patches applied (package/build-amiga.sh does both). STOVE is a
+# GFOpenAmigaGCC 16.2.0-open6 stove (prefix/ has the compiler and the NDK).
+# The game draws through amiga/curses.c (the part of ncurses it uses, sent
+# to the console as ANSI with the eight pens for colour); its pauses are
+# dos.library Delay (amiga/include/amiga_prelude.h); amiga/console_amiga.c
+# opens the window and reads the keys (amiga/keys.c: the cursor keys as
+# KEY_*).
+#
+# Output: build/amigaos/XorCurses/ (the drawer: XorCurses, maps/ with the
+# fifteen levels, the help pages, ReadMe, the licence, GlowIcons),
+# build/amigaos/XorCurses.info and Install-XorCurses beside them.
+
+UP      ?= ../XorCurses
+VERSION ?= 0.2.2
+STOVE   ?= $(HOME)/AmiCradle/stoves/os32-gcc16-open6
+PREFIX  ?= $(STOVE)/prefix
+CC      = $(PREFIX)/bin/m68k-amigaos-gcc
+CPU     ?= -m68040 -msoft-float
+# -fno-tree-loop-distribute-patterns: GCC 16's loop miscompile.
+OPT     ?= -Os -fomit-frame-pointer -fno-tree-loop-distribute-patterns
+
+UPFLAGS = -noixemul $(OPT) $(CPU) -std=gnu99 -w -D__amigaos__ -DVERSION='"$(VERSION)"' \
+          -DDATADIR='"PROGDIR:"' -include amiga/include/amiga_prelude.h -Iamiga/include -Iamiga
+MYFLAGS = -noixemul $(OPT) $(CPU) -std=gnu99 -Wall -Iamiga/include -Iamiga
+LDFLAGS = -noixemul $(CPU)
+
+BUILD   = build/amigaos
+OBJ     = $(BUILD)/obj
+OUT     = $(BUILD)/XorCurses
+
+GAME    = $(notdir $(basename $(wildcard $(UP)/*.c)))
+PORT    = curses keys console_amiga
+
+all: $(OUT)/XorCurses package
+
+$(OBJ)/up/%.o: $(UP)/%.c $(wildcard amiga/include/*.h)
+	@mkdir -p $(dir $@)
+	$(CC) $(UPFLAGS) -c -o $@ $<
+
+$(OBJ)/port/%.o: amiga/%.c $(wildcard amiga/*.h amiga/include/*.h)
+	@mkdir -p $(dir $@)
+	$(CC) $(MYFLAGS) -c -o $@ $<
+
+$(OUT)/XorCurses: $(GAME:%=$(OBJ)/up/%.o) $(PORT:%=$(OBJ)/port/%.o)
+	@mkdir -p $(OUT)
+	$(CC) $(LDFLAGS) -o $@ $^
+
+package: $(OUT)/XorCurses AMIGA_PORT.md
+	mkdir -p $(OUT)/maps
+	cp $(UP)/maps/*.xcm $(OUT)/maps/
+	cp $(UP)/help_game.txt $(UP)/help_keys.txt $(UP)/help_objects.txt $(OUT)/
+	cp AMIGA_PORT.md $(OUT)/ReadMe
+	cp $(UP)/README $(OUT)/ReadMe-XorCurses
+	cp $(UP)/LICENSE $(OUT)/LICENSE.txt
+	cp amiga/icons/XorCurses.info amiga/icons/ReadMe.info $(OUT)/
+	cp amiga/icons/ReadMe.info $(OUT)/ReadMe-XorCurses.info
+	cp amiga/icons/ReadMe.info $(OUT)/LICENSE.txt.info
+	cp amiga/icons/XorCurses-drawer.info $(BUILD)/XorCurses.info
+	cp amiga/Install-XorCurses amiga/Install-XorCurses.info $(BUILD)/
+
+clean:
+	rm -rf $(BUILD)
+
+.PHONY: all package clean
