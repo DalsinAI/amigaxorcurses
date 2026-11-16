@@ -1,0 +1,14 @@
+{
+  "name": "XorCurses",
+  "version": "0.2.2-gfos1",
+  "drawer": "XorCurses",
+  "program": "XorCurses",
+  "cpu": "68040",
+  "fpu": false,
+  "space": 300000,
+  "modules": [],
+  "parent": "Work:Games",
+  "badge": "icons/art/xorcurses.png",
+  "keep": [".xorcurses"],
+  "script": "Install-XorCurses"
+}

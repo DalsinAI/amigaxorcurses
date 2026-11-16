@@ -1,0 +1,6 @@
+# Upstream: XorCurses (James W. Morris, GPL-3.0, levels included) at this
+# commit; package/build-amiga.sh fetches it, never kept here.
+UP_URL=https://github.com/jwm-art-net/XorCurses
+UP_COMMIT=fb2372a7a1f639a4129f5a6ccca5a8da3b5eb4c7
+UP_VERSION=0.2.2
+PORT_VERSION=0.2.2-gfos1
