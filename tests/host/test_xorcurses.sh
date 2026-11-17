@@ -3,7 +3,7 @@
 # built with upstream's XorCurses (amiga/patches applied, __amigaos__ set,
 # so the Amiga's paths are the ones built, its drawer here a directory)
 # over a plain terminal (tests/host/console_host.c), played with scripted
-# keys; tests/host/vt.py reads back the screen as the Amiga's console
+# keys; GFOpenCurses' tests/host/vt.py reads back the screen as the Amiga's console
 # would show it:
 #  - keys: Return is CR after nonl(), NL after nl(); the cursor keys come
 #    as KEY_* with keypad on;
@@ -21,6 +21,8 @@ set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/../.." && pwd)
 UP=${UP:?UP=upstream source}
+GC=${GFOPENCURSES:?GFOPENCURSES=gfopencurses checkout}
+VT=$GC/tests/host/vt.py
 CC=${HOSTCC:-cc}
 command -v "$CC" >/dev/null 2>&1 || { echo "host tests: skipped (no C compiler)"; exit 0; }
 T=$(mktemp -d "${TMPDIR:-/tmp}/xorcurses-host.XXXXXX")
@@ -32,20 +34,20 @@ mkdir -p "$T/drawer/maps"
 cp "$UP"/maps/*.xcm "$T/drawer/maps/"
 cp "$UP"/help_*.txt "$T/drawer/"
 
-MINE="-std=gnu99 -Wall -Werror -D_XOPEN_SOURCE=600 -D_DEFAULT_SOURCE -Iamiga/include -Iamiga"
-for f in curses keys; do $CC $MINE -c -o "$T/$f.o" "amiga/$f.c"; done
-$CC $MINE -c -o "$T/con.o" tests/host/console_host.c
+MINE="-std=gnu99 -Wall -Werror -D_XOPEN_SOURCE=600 -D_DEFAULT_SOURCE -I$GC/include -Iamiga/include -Iamiga"
+for f in curses keys; do $CC $MINE -c -o "$T/$f.o" "$GC/src/$f.c"; done
+$CC $MINE -c -o "$T/con.o" "$GC/src/console_host.c"
 for c in "$UP"/*.c; do
     f=$(basename "$c" .c)
     $CC -std=gnu99 -w -D__amigaos__ -DVERSION='"0.2.2"' -DDATADIR="\"$T/drawer/\"" \
         -DAMIGA_USER_DIR="\"$T/drawer/\"" -include amiga/include/amiga_prelude.h \
-        -Iamiga/include -Iamiga -c -o "$T/u_$f.o" "$c"
+        -I$GC/include -Iamiga/include -Iamiga -c -o "$T/u_$f.o" "$c"
 done
 $CC -o "$T/xorcurses" "$T"/u_*.o "$T/curses.o" "$T/keys.o" "$T/con.o"
 
 cat > "$T/keys_test.c" <<'C'
 #include <stdio.h>
-#include "keys.h"
+#include "gfopencurses_keys.h"
 static const unsigned char *p; static int n;
 static int next(void) { return n-- > 0 ? *p++ : -1; }
 int main(void)
@@ -75,13 +77,13 @@ want() {	# name, output, texts...
     n=$#
     for t in "$@"; do set -- "$@" --want "$t"; done
     shift "$n"
-    if python3 "$HERE/vt.py" "$out" "$@" > "$T/vt.txt"; then
+    if python3 "$VT" "$out" "$@" > "$T/vt.txt"; then
         echo "ok   $name"
     else
         echo "FAIL $name"; cat "$T/vt.txt"; fails=$((fails + 1))
     fi
 }
-moves() { python3 "$HERE/vt.py" "$1" | grep -o "moves: [0-9]*" | tr -dc 0-9; }
+moves() { python3 "$VT" "$1" | grep -o "moves: [0-9]*" | tr -dc 0-9; }
 
 if play '' "$T/menu.out"; then echo "ok   the window's close ends the game"; else echo "FAIL the end of the input did not end it"; fails=$((fails + 1)); fi
 want "title and level menu, the levels read from maps/" "$T/menu.out" \
@@ -91,7 +93,7 @@ want "1 and Return start level 1" "$T/level.out" "1. Dots and Waves" "masks:  0 
 play '1\r\033[D\033[D' "$T/moved.out"
 if [ "$(moves "$T/moved.out")" = 2 ]; then echo "ok   the cursor keys move the player"; else echo "FAIL moves: $(moves "$T/moved.out")"; fails=$((fails + 1)); fi
 play 'hg' "$T/help.out"
-if python3 "$HERE/vt.py" "$T/help.out" | grep -q "Xor must be revealed"; then echo "ok   h g shows the game help page (help_game.txt)"; else echo "FAIL help"; python3 "$HERE/vt.py" "$T/help.out"; fails=$((fails + 1)); fi
+if python3 "$VT" "$T/help.out" | grep -q "Xor must be revealed"; then echo "ok   h g shows the game help page (help_game.txt)"; else echo "FAIL help"; python3 "$VT" "$T/help.out"; fails=$((fails + 1)); fi
 rm -f "$T/drawer/.xorcurses"
 if play '1\r\033[Dqq' "$T/quit.out" && [ -s "$T/drawer/.xorcurses" ]; then
     echo "ok   q leaves the level and the game, the scores are kept beside the program"
