@@ -20,6 +20,7 @@ HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/.." && pwd)
 . "$HERE/package.env"
 . "$HERE/xorcurses.lock"
+. "$HERE/gfopencurses.lock"
 OUT=${OUT:-"$ROOT/build-amiga-package"}
 mkdir -p "$OUT"
 OUT=$(CDPATH= cd -- "$OUT" && pwd)
@@ -46,13 +47,24 @@ for p in "$ROOT"/amiga/patches/*.patch; do
     patch -s -d "$UPSRC" -p1 < "$p"
 done
 
+# 1b. GFOpenCurses at the locked commit, its library built
+CURSES="$WORK/gfopencurses"
+if [ "$(git -C "$CURSES" rev-parse HEAD 2>/dev/null)" != "$GFOPENCURSES_COMMIT" ]; then
+    rm -rf "$CURSES"; mkdir -p "$CURSES"
+    git -C "$CURSES" init -q
+    git -C "$CURSES" fetch -q --depth 1 "$GFOPENCURSES_URL" "$GFOPENCURSES_COMMIT"
+    git -C "$CURSES" checkout -q FETCH_HEAD
+fi
+make -C "$CURSES" STOVE="$STOVE" PREFIX="$PREFIX" amiga > "$OUT/gfopencurses-output.txt" 2>&1 \
+    || { tail -n 40 "$OUT/gfopencurses-output.txt"; exit 1; }
+
 # 2. the host tests
 if command -v cc >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
-    UP="$UPSRC" sh tests/host/test_xorcurses.sh
+    UP="$UPSRC" GFOPENCURSES="$CURSES" sh tests/host/test_xorcurses.sh
 fi
 
 # 3. the game
-make -f amiga/Makefile.amigaos UP="$UPSRC" VERSION="$UP_VERSION" STOVE="$STOVE" PREFIX="$PREFIX" -j4 $TARGET \
+make -f amiga/Makefile.amigaos UP="$UPSRC" GFOPENCURSES="$CURSES" VERSION="$UP_VERSION" STOVE="$STOVE" PREFIX="$PREFIX" -j4 $TARGET \
     > "$OUT/build-output.txt" 2>&1 || { tail -n 60 "$OUT/build-output.txt"; exit 1; }
 
 # 4. the archive

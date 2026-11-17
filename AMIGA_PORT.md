@@ -21,14 +21,15 @@ any screen with eight colours or more: no SDL, no ACGame, no GFOpenGPU.
 How it was ported
 -----------------
 The game is built from upstream as it is, its levels and help pages in
-the drawer. amiga/curses.c is the part of ncurses it uses: windows kept
+the drawer. Its curses is GFOpenCurses (DalsinAI/gfopencurses, the
+library our console ports share): windows kept
 in memory, and a refresh that sends the console only the lines written
 since, as ANSI that console.device reads, with colour pairs on the
 screen's first eight pens (SGR 30-37, 40-47), lines and corners in
 ASCII, halfdelay and nodelay through WaitForChar, and line input
-(wgetnstr) for replay names. amiga/console_amiga.c opens the window,
-puts it in raw mode and reads the keys (amiga/keys.c: the cursor keys as
-curses' KEY_*, Return as CR after nonl()). Its pauses are dos.library
+(wgetnstr) for replay names; it opens the window, puts it in raw mode
+and reads the keys (the cursor keys as curses' KEY_*, Return as CR after
+nonl()). Its pauses are dos.library
 Delay (amiga/include/amiga_prelude.h). The one patch, amiga/patches/0001,
 keeps the scores in PROGDIR:, finds the levels by their first file
 (AmigaDOS opens no drawer as a file), and joins drawer paths without a
